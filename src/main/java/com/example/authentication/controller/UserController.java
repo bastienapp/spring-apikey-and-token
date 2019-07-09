@@ -6,7 +6,12 @@ import com.example.authentication.entity.User;
 import com.example.authentication.repository.TaskRepository;
 import com.example.authentication.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Optional;
 
 @RestController
 public class UserController {
@@ -19,13 +24,17 @@ public class UserController {
 
     @PostMapping("/signIn")
     public User signIn(@RequestBody User user) {
-        return userRepository.findByEmailIgnoreCaseAndPassword(user.getEmail(),
+        User userFromDB = userRepository.findByEmailIgnoreCaseAndPassword(user.getEmail(),
                 user.getPassword());
+
+        return userExists(userFromDB);
     }
 
     @GetMapping("/signIn/{apiKey}")
     public User signInWithApiKey(@PathVariable String apiKey) {
-        return userRepository.findByApiKey(apiKey);
+        User userFromDB = userRepository.findByApiKey(apiKey);
+
+        return userExists(userFromDB);
     }
 
     @PostMapping("/signUp")
@@ -34,15 +43,11 @@ public class UserController {
         return userRepository.save(user);
     }
 
-    // TODO : update only if user is allowed
     @PutMapping("/users/{userId}")
     public User update(@PathVariable Long userId,
-            @RequestParam String apiKey,
-            @RequestBody User userUpdate) {
-        User userFromDB = userRepository.findById(userId).get();
-        if (!userFromDB.getApiKey().equals(apiKey)) {
-            return null;
-        }
+                       @RequestParam String apiKey,
+                       @RequestBody User userUpdate) {
+        User userFromDB = userAllowed(userId, apiKey);
 
         if (userUpdate.getEmail() != null && !userUpdate.getEmail().isEmpty()) {
             userFromDB.setEmail(userUpdate.getEmail());
@@ -53,20 +58,63 @@ public class UserController {
         return userRepository.save(userFromDB);
     }
 
-    // TODO : add task only if user is allowed
     @PostMapping("/users/{userId}/tasks")
     public Task addTask(@PathVariable Long userId,
                         @RequestBody Task task,
                         @RequestParam String apiKey) {
-        User user = userRepository.findById(userId).get();
-        if (!user.getApiKey().equals(apiKey)) {
-            return null;
-        }
-        task.setUser(user);
+        User userFromDB = userAllowed(userId, apiKey);
+        task.setUser(userFromDB);
         return taskRepository.save(task);
     }
 
-    // TODO : list tasks only if user is allowed
+    @GetMapping("/users/{userId}/tasks")
+    public List<Task> addTask(@PathVariable Long userId,
+                              @RequestParam String apiKey) {
+        User userFromDB = userAllowed(userId, apiKey);
+        return userFromDB.getTasks();
+    }
 
-    // TODO : remove task only if user is allowed
+    @DeleteMapping("/users/{userId}/tasks/{taskId}")
+    public boolean removeTask(@PathVariable Long userId,
+                              @PathVariable Long taskId,
+                              @RequestParam String apiKey) {
+        userAllowed(userId, apiKey);
+        Optional<Task> optionalTask = taskRepository.findById(taskId);
+        if (!optionalTask.isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Task not found"
+            );
+        }
+        taskRepository.deleteById(taskId);
+        return true;
+    }
+
+    private User userAllowed(Long userId, String apiKey) {
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (!optionalUser.isPresent()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "User not found"
+            );
+        }
+        User userFromDB = optionalUser.get();
+        if (!userFromDB.getApiKey().equals(apiKey)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "User not allowed"
+            );
+        }
+        return  userFromDB;
+    }
+
+    private User userExists(User user) {
+        if (user == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "User not found"
+            );
+        }
+        return user;
+    }
 }
