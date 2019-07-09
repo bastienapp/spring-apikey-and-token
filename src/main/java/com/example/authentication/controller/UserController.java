@@ -105,7 +105,7 @@ public class UserController {
                     "User not allowed"
             );
         }
-        return  userFromDB;
+        return userFromDB;
     }
 
     private User userExists(User user) {

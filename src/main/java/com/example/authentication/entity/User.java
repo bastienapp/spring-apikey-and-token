@@ -1,6 +1,5 @@
 package com.example.authentication.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.*;
@@ -25,9 +24,11 @@ public class User {
     @NonNull
     @Size(min = 8)
     private String password;
+
     @NonNull
     @NotEmpty
     private String apiKey;
+
     @OneToMany(cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,
             mappedBy = "user")
