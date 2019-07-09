@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,62 +24,73 @@ public class UserController {
     private TaskRepository taskRepository;
 
     @PostMapping("/signIn")
-    public User signIn(@RequestBody User user) {
-        User userFromDB = userRepository.findByEmailIgnoreCaseAndPassword(user.getEmail(),
-                user.getPassword());
-
-        return userExists(userFromDB);
+    public User signIn(@RequestBody User userBody,
+                       HttpServletResponse response) {
+        User user = userRepository.findByEmailIgnoreCaseAndPassword(
+                userBody.getEmail(), userBody.getPassword());
+        user = refreshToken(user);
+        response.setHeader("Authentication", user.getToken());
+        return userExists(user);
     }
 
     @GetMapping("/signIn/{apiKey}")
-    public User signInWithApiKey(@PathVariable String apiKey) {
-        User userFromDB = userRepository.findByApiKey(apiKey);
-
-        return userExists(userFromDB);
+    public User signInWithApiKey(@PathVariable String apiKey,
+                                 HttpServletResponse response) {
+        User user = userRepository.findByApiKey(apiKey);
+        user = refreshToken(user);
+        response.setHeader("Authentication", user.getToken());
+        return userExists(user);
     }
 
     @PostMapping("/signUp")
-    public User signUp(@RequestBody User user) {
+    public User signUp(@RequestBody User user,
+                       HttpServletResponse response) {
         user.setApiKey(Util.hash("tartiflette_" + System.currentTimeMillis()));
+        user = refreshToken(user);
+        response.setHeader("Authentication", user.getToken());
         return userRepository.save(user);
     }
 
     @PutMapping("/users/{userId}")
     public User update(@PathVariable Long userId,
                        @RequestParam String apiKey,
-                       @RequestBody User userUpdate) {
-        User userFromDB = userAllowed(userId, apiKey);
+                       @RequestBody User userUpdate,
+                       @RequestHeader("Authentication") String token) {
+        User user = userAllowed(userId, apiKey, token);
 
         if (userUpdate.getEmail() != null && !userUpdate.getEmail().isEmpty()) {
-            userFromDB.setEmail(userUpdate.getEmail());
+            user.setEmail(userUpdate.getEmail());
         }
         if (userUpdate.getPassword() != null && !userUpdate.getPassword().isEmpty()) {
-            userFromDB.setPassword(userUpdate.getPassword());
+            user.setPassword(userUpdate.getPassword());
         }
-        return userRepository.save(userFromDB);
+        return userRepository.save(user);
     }
 
     @PostMapping("/users/{userId}/tasks")
     public Task addTask(@PathVariable Long userId,
                         @RequestBody Task task,
-                        @RequestParam String apiKey) {
-        User userFromDB = userAllowed(userId, apiKey);
-        task.setUser(userFromDB);
+                        @RequestParam String apiKey,
+                        @RequestHeader("Authentication") String token) {
+        User user = userAllowed(userId, apiKey, token);
+        task.setUser(user);
         return taskRepository.save(task);
     }
 
     @GetMapping("/users/{userId}/tasks")
     public List<Task> addTask(@PathVariable Long userId,
-                              @RequestParam String apiKey) {
-        User userFromDB = userAllowed(userId, apiKey);
-        return userFromDB.getTasks();
+                              @RequestParam String apiKey,
+                              @RequestHeader("Authentication") String token) {
+        User user = userAllowed(userId, apiKey, token);
+        return user.getTasks();
     }
 
     @DeleteMapping("/users/{userId}/tasks/{taskId}")
     public boolean removeTask(@PathVariable Long userId,
                               @PathVariable Long taskId,
-                              @RequestParam String apiKey) {
-        userAllowed(userId, apiKey);
+                              @RequestParam String apiKey,
+                              @RequestHeader("Authentication") String token) {
+        userAllowed(userId, apiKey, token);
         Optional<Task> optionalTask = taskRepository.findById(taskId);
         if (!optionalTask.isPresent()) {
             throw new ResponseStatusException(
@@ -90,7 +102,12 @@ public class UserController {
         return true;
     }
 
-    private User userAllowed(Long userId, String apiKey) {
+    private User refreshToken(User user) {
+        user.setToken(Util.hash("tacos_" + System.currentTimeMillis() + "" + Math.random()));
+        return userRepository.save(user);
+    }
+
+    private User userAllowed(Long userId, String apiKey, String token) {
         Optional<User> optionalUser = userRepository.findById(userId);
         if (!optionalUser.isPresent()) {
             throw new ResponseStatusException(
@@ -98,14 +115,15 @@ public class UserController {
                     "User not found"
             );
         }
-        User userFromDB = optionalUser.get();
-        if (!userFromDB.getApiKey().equals(apiKey)) {
+        User user = optionalUser.get();
+        if (!user.getApiKey().equals(apiKey)
+                || !user.getToken().equals(token)) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "User not allowed"
             );
         }
-        return userFromDB;
+        return user;
     }
 
     private User userExists(User user) {

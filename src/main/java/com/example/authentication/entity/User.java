@@ -1,5 +1,6 @@
 package com.example.authentication.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.lang.NonNull;
 
 import javax.persistence.*;
@@ -28,6 +29,11 @@ public class User {
     @NonNull
     @NotEmpty
     private String apiKey;
+
+    @NonNull
+    @NotEmpty
+    @JsonIgnore
+    private String token;
 
     @OneToMany(cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,
@@ -76,5 +82,14 @@ public class User {
 
     public void setTasks(List<Task> tasks) {
         this.tasks = tasks;
+    }
+
+    @NonNull
+    public String getToken() {
+        return token;
+    }
+
+    public void setToken(@NonNull String token) {
+        this.token = token;
     }
 }
