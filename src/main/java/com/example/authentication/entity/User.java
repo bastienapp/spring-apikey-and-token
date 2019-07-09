@@ -25,14 +25,24 @@ public class User {
     @NonNull
     @Size(min = 8)
     private String password;
-
+    @NonNull
+    @NotEmpty
+    private String apiKey;
     @OneToMany(cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,
             mappedBy = "user")
-    @JsonIgnore
     private List<Task> tasks = new ArrayList<>();
 
     public User() {
+    }
+
+    @NonNull
+    public String getApiKey() {
+        return apiKey;
+    }
+
+    public void setApiKey(@NonNull String apiKey) {
+        this.apiKey = apiKey;
     }
 
     public Long getId() {
