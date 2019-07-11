@@ -131,15 +131,19 @@ public class UserController {
             );
         }
         User user = optionalUser.get();
-        Date now = new Date();
-        Date tokenValidity = new Date(user.getTokenValidity());
         if (!user.getApiKey().equals(apiKey)
-                || !user.getToken().equals(token)
-                || now.after(tokenValidity)
-        ) {
+                || !user.getToken().equals(token)) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "User not allowed"
+            );
+        }
+        Date now = new Date();
+        Date tokenValidity = new Date(user.getTokenValidity());
+        if (now.after(tokenValidity)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Session expired"
             );
         }
         return user;
