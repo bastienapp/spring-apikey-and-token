@@ -38,7 +38,7 @@ public class UserController {
                 userBody.getEmail(), userBody.getPassword());
         userExists(user);
         user = refreshToken(user);
-        response.setHeader("Authentication", user.getToken());
+        response.setHeader("Authorization", user.getToken());
         return userRepository.save(user);
     }
 
@@ -48,7 +48,7 @@ public class UserController {
         User user = userRepository.findByApiKey(apiKey);
         userExists(user);
         user = refreshToken(user);
-        response.setHeader("Authentication", user.getToken());
+        response.setHeader("Authorization", user.getToken());
         return userRepository.save(user);
     }
 
@@ -57,7 +57,7 @@ public class UserController {
                        HttpServletResponse response) {
         user.setApiKey(Util.hash("tartiflette_" + System.currentTimeMillis()));
         user = refreshToken(user);
-        response.setHeader("Authentication", user.getToken());
+        response.setHeader("Authorization", user.getToken());
         return userRepository.save(user);
     }
 
@@ -75,7 +75,7 @@ public class UserController {
     public User update(@PathVariable Long userId,
                        @RequestParam String apiKey,
                        @RequestBody User userUpdate,
-                       @RequestHeader("Authentication") String token) {
+                       @RequestHeader("Authorization") String token) {
         User user = userAllowed(userId, apiKey, token);
 
         if (userUpdate.getEmail() != null && !userUpdate.getEmail().isEmpty()) {
@@ -91,7 +91,7 @@ public class UserController {
     public Task addTask(@PathVariable Long userId,
                         @RequestBody Task task,
                         @RequestParam String apiKey,
-                        @RequestHeader("Authentication") String token) {
+                        @RequestHeader("Authorization") String token) {
         User user = userAllowed(userId, apiKey, token);
         task.setUser(user);
         return taskRepository.save(task);
@@ -100,7 +100,7 @@ public class UserController {
     @GetMapping("/users/{userId}/tasks")
     public List<Task> addTask(@PathVariable Long userId,
                               @RequestParam String apiKey,
-                              @RequestHeader("Authentication") String token) {
+                              @RequestHeader("Authorization") String token) {
         User user = userAllowed(userId, apiKey, token);
         return user.getTasks();
     }
@@ -109,7 +109,7 @@ public class UserController {
     public boolean removeTask(@PathVariable Long userId,
                               @PathVariable Long taskId,
                               @RequestParam String apiKey,
-                              @RequestHeader("Authentication") String token) {
+                              @RequestHeader("Authorization") String token) {
         userAllowed(userId, apiKey, token);
         Optional<Task> optionalTask = taskRepository.findById(taskId);
         if (!optionalTask.isPresent()) {
