@@ -35,6 +35,10 @@ public class User {
     @JsonIgnore
     private String token;
 
+    @NonNull
+    @JsonIgnore
+    private Long tokenValidity;
+
     @OneToMany(cascade = CascadeType.ALL,
             fetch = FetchType.LAZY,
             mappedBy = "user")
@@ -91,5 +95,13 @@ public class User {
 
     public void setToken(@NonNull String token) {
         this.token = token;
+    }
+
+    public Long getTokenValidity() {
+        return tokenValidity;
+    }
+
+    public void setTokenValidity(Long tokenValidity) {
+        this.tokenValidity = tokenValidity;
     }
 }

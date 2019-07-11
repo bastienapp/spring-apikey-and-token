@@ -11,11 +11,19 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
 import javax.servlet.http.HttpServletResponse;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
 @RestController
 public class UserController {
+
+    @GetMapping("/date")
+    public static void test() {
+        Date date = new Date();
+        System.out.println(date.getTime());
+    }
 
     @Autowired
     private UserRepository userRepository;
@@ -28,18 +36,20 @@ public class UserController {
                        HttpServletResponse response) {
         User user = userRepository.findByEmailIgnoreCaseAndPassword(
                 userBody.getEmail(), userBody.getPassword());
+        userExists(user);
         user = refreshToken(user);
         response.setHeader("Authentication", user.getToken());
-        return userExists(user);
+        return userRepository.save(user);
     }
 
     @GetMapping("/signIn/{apiKey}")
     public User signInWithApiKey(@PathVariable String apiKey,
                                  HttpServletResponse response) {
         User user = userRepository.findByApiKey(apiKey);
+        userExists(user);
         user = refreshToken(user);
         response.setHeader("Authentication", user.getToken());
-        return userExists(user);
+        return userRepository.save(user);
     }
 
     @PostMapping("/signUp")
@@ -49,6 +59,16 @@ public class UserController {
         user = refreshToken(user);
         response.setHeader("Authentication", user.getToken());
         return userRepository.save(user);
+    }
+
+    private User refreshToken(User user) {
+        user.setToken(Util.hash("tacos_" + System.currentTimeMillis() + "" + Math.random()));
+        Date currentDate = new Date();
+        Calendar c = Calendar.getInstance();
+        c.setTime(currentDate);
+        c.add(Calendar.HOUR, 48);
+        user.setTokenValidity(c.getTimeInMillis());
+        return user;
     }
 
     @PutMapping("/users/{userId}")
@@ -102,11 +122,6 @@ public class UserController {
         return true;
     }
 
-    private User refreshToken(User user) {
-        user.setToken(Util.hash("tacos_" + System.currentTimeMillis() + "" + Math.random()));
-        return userRepository.save(user);
-    }
-
     private User userAllowed(Long userId, String apiKey, String token) {
         Optional<User> optionalUser = userRepository.findById(userId);
         if (!optionalUser.isPresent()) {
@@ -116,8 +131,12 @@ public class UserController {
             );
         }
         User user = optionalUser.get();
+        Date now = new Date();
+        Date tokenValidity = new Date(user.getTokenValidity());
         if (!user.getApiKey().equals(apiKey)
-                || !user.getToken().equals(token)) {
+                || !user.getToken().equals(token)
+                || now.after(tokenValidity)
+        ) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
                     "User not allowed"
